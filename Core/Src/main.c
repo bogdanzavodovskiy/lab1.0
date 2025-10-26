@@ -36,6 +36,9 @@
 
 #define LD3_GPIO_PORT    GPIOB
 #define LD3_PIN          GPIO_PIN_14
+
+#define USER_BUTTON_PORT GPIOC
+#define USER_BUTTON_PIN  GPIO_PIN_13
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -47,6 +50,9 @@
 
 /* USER CODE BEGIN PV */
 uint32_t tick_ms;
+uint32_t phase_shift_ms;
+uint8_t last_button_state = GPIO_PIN_SET;
+uint8_t phase90_mode = 1;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -99,17 +105,26 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-	    tick_ms = HAL_GetTick() % 1000;
+      tick_ms = HAL_GetTick() % 1000;
+      phase_shift_ms = (phase90_mode) ? 250 : 500;
 
-	    if (tick_ms < 500)
-	        HAL_GPIO_WritePin(LD2_GPIO_PORT, LD2_PIN, GPIO_PIN_SET);
-	    else
-	        HAL_GPIO_WritePin(LD2_GPIO_PORT, LD2_PIN, GPIO_PIN_RESET);
+      if (tick_ms < 500)
+          HAL_GPIO_WritePin(LD2_GPIO_PORT, LD2_PIN, GPIO_PIN_SET);
+      else
+          HAL_GPIO_WritePin(LD2_GPIO_PORT, LD2_PIN, GPIO_PIN_RESET);
 
-	    if (tick_ms < 500)
-	        HAL_GPIO_WritePin(LD3_GPIO_PORT, LD3_PIN, GPIO_PIN_RESET);
-	    else
-	        HAL_GPIO_WritePin(LD3_GPIO_PORT, LD3_PIN, GPIO_PIN_SET);
+      uint32_t shifted = (tick_ms + phase_shift_ms) % 1000;
+      if (shifted < 500)
+          HAL_GPIO_WritePin(LD3_GPIO_PORT, LD3_PIN, GPIO_PIN_SET);
+      else
+          HAL_GPIO_WritePin(LD3_GPIO_PORT, LD3_PIN, GPIO_PIN_RESET);
+
+      uint8_t raw = HAL_GPIO_ReadPin(USER_BUTTON_PORT, USER_BUTTON_PIN);
+      if (raw == GPIO_PIN_RESET && last_button_state == GPIO_PIN_SET) {
+
+          phase90_mode ^= 1;
+      }
+      last_button_state = raw;
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
