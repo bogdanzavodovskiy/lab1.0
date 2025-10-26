@@ -33,6 +33,9 @@
 /* USER CODE BEGIN PD */
 #define LD2_GPIO_PORT    GPIOB
 #define LD2_PIN          GPIO_PIN_7
+
+#define LD3_GPIO_PORT    GPIOB
+#define LD3_PIN          GPIO_PIN_14
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -89,6 +92,7 @@ int main(void)
   MX_GPIO_Init();
   /* USER CODE BEGIN 2 */
   HAL_GPIO_WritePin(LD2_GPIO_PORT, LD2_PIN, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(LD3_GPIO_PORT, LD3_PIN, GPIO_PIN_RESET);
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -101,6 +105,11 @@ int main(void)
 	        HAL_GPIO_WritePin(LD2_GPIO_PORT, LD2_PIN, GPIO_PIN_SET);
 	    else
 	        HAL_GPIO_WritePin(LD2_GPIO_PORT, LD2_PIN, GPIO_PIN_RESET);
+
+	    if (tick_ms < 500)
+	        HAL_GPIO_WritePin(LD3_GPIO_PORT, LD3_PIN, GPIO_PIN_SET);
+	    else
+	        HAL_GPIO_WritePin(LD3_GPIO_PORT, LD3_PIN, GPIO_PIN_RESET);
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
