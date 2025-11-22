@@ -18,6 +18,7 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
+#include <stdio.h>
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
@@ -54,7 +55,6 @@ uint32_t tick_ms;
 uint32_t phase_shift_ms;
 uint8_t last_button_state = GPIO_PIN_SET;
 uint8_t phase90_mode = 1;
-uint8_t tx_buffer[7]="Hello\n\r";
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -68,6 +68,11 @@ static void MX_USART3_UART_Init(void);
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 
+int _write(int file, char *ptr, int len)
+{
+    HAL_UART_Transmit(&huart3, (uint8_t*)ptr, len, HAL_MAX_DELAY);
+    return len;
+}
 /* USER CODE END 0 */
 
 /**
@@ -76,7 +81,6 @@ static void MX_USART3_UART_Init(void);
   */
 int main(void)
 {
-
   /* USER CODE BEGIN 1 */
 
   /* USER CODE END 1 */
@@ -103,7 +107,7 @@ int main(void)
   /* USER CODE BEGIN 2 */
   HAL_GPIO_WritePin(LD2_GPIO_PORT, LD2_PIN, GPIO_PIN_RESET);
   HAL_GPIO_WritePin(LD3_GPIO_PORT, LD3_PIN, GPIO_PIN_RESET);
-  uint32_t last_tx_tick = 0;
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -111,32 +115,27 @@ int main(void)
   while (1)
   {
 
-      tick_ms = HAL_GetTick() % 1000;
-      phase_shift_ms = (phase90_mode) ? 250 : 500;
+    tick_ms = HAL_GetTick() % 1000;
+    phase_shift_ms = (phase90_mode) ? 250 : 500;
 
-      if (tick_ms < 500)
-          HAL_GPIO_WritePin(LD2_GPIO_PORT, LD2_PIN, GPIO_PIN_SET);
-      else
-          HAL_GPIO_WritePin(LD2_GPIO_PORT, LD2_PIN, GPIO_PIN_RESET);
+    if (tick_ms < 500)
+        HAL_GPIO_WritePin(LD2_GPIO_PORT, LD2_PIN, GPIO_PIN_SET);
+    else
+        HAL_GPIO_WritePin(LD2_GPIO_PORT, LD2_PIN, GPIO_PIN_RESET);
 
-      uint32_t shifted = (tick_ms + phase_shift_ms) % 1000;
-      if (shifted < 500)
-          HAL_GPIO_WritePin(LD3_GPIO_PORT, LD3_PIN, GPIO_PIN_SET);
-      else
-          HAL_GPIO_WritePin(LD3_GPIO_PORT, LD3_PIN, GPIO_PIN_RESET);
+    uint32_t shifted = (tick_ms + phase_shift_ms) % 1000;
+    if (shifted < 500)
+        HAL_GPIO_WritePin(LD3_GPIO_PORT, LD3_PIN, GPIO_PIN_SET);
+    else
+        HAL_GPIO_WritePin(LD3_GPIO_PORT, LD3_PIN, GPIO_PIN_RESET);
 
-      uint8_t raw = HAL_GPIO_ReadPin(USER_BUTTON_PORT, USER_BUTTON_PIN);
-
-      if (raw == GPIO_PIN_RESET && last_button_state == GPIO_PIN_SET) {
-
-          phase90_mode ^= 1;
-      }
-      last_button_state = raw;
-
-      if (HAL_GetTick() - last_tx_tick >= 1000) {
-              last_tx_tick = HAL_GetTick();
-              HAL_UART_Transmit(&huart3, tx_buffer, 7, 10);
-      }
+    uint8_t raw = HAL_GPIO_ReadPin(USER_BUTTON_PORT, USER_BUTTON_PIN);
+    if (raw == GPIO_PIN_RESET && last_button_state == GPIO_PIN_SET) {
+        phase90_mode ^= 1;
+        printf("Phase mode changed to: %s\r\n", phase90_mode ? "90°" : "180°");
+        HAL_Delay(300);
+    }
+    last_button_state = raw;
 
     /* USER CODE END WHILE */
 
@@ -278,7 +277,7 @@ void Error_Handler(void)
 #ifdef USE_FULL_ASSERT
 /**
   * @brief  Reports the name of the source file and the source line number
-  *         where the assert_param error has occurred.
+  * where the assert_param error has occurred.
   * @param  file: pointer to the source file name
   * @param  line: assert_param error line source number
   * @retval None
