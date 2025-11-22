@@ -339,9 +339,9 @@ void parse_frequency_command(char* command)
         return;
     }
 
-    if (frequency < 0.3f || frequency > 7.8f)
+    if (frequency < 0.1f || frequency > 9.9f)
     {
-        printf("ERROR: Frequency %.1f out of range (0.3-7.8 Hz)\r\n", frequency);
+        printf("ERROR: Frequency %.1f out of range (0.1-9.9 Hz)\r\n", frequency);
         return;
     }
 
