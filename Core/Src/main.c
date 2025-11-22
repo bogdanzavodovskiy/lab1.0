@@ -18,11 +18,12 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
-#include <stdio.h>
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include <string.h>
+#include <ctype.h>
+#include <stdlib.h>
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -40,6 +41,8 @@
 
 #define USER_BUTTON_PORT GPIOC
 #define USER_BUTTON_PIN  GPIO_PIN_13
+
+#define RX_BUFFER_SIZE 32
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -55,6 +58,13 @@ uint32_t tick_ms;
 uint32_t phase_shift_ms;
 uint8_t last_button_state = GPIO_PIN_SET;
 uint8_t phase90_mode = 1;
+
+uint32_t blink_period_ms = 1000;
+uint32_t half_period_ms = 500;
+
+char rx_buffer[RX_BUFFER_SIZE];
+uint8_t rx_index = 0;
+uint8_t new_data_available = 0;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -62,7 +72,8 @@ void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_USART3_UART_Init(void);
 /* USER CODE BEGIN PFP */
-
+void process_uart_command(void);
+void parse_frequency_command(char* command);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -81,6 +92,7 @@ int _write(int file, char *ptr, int len)
   */
 int main(void)
 {
+
   /* USER CODE BEGIN 1 */
 
   /* USER CODE END 1 */
@@ -105,6 +117,8 @@ int main(void)
   MX_GPIO_Init();
   MX_USART3_UART_Init();
   /* USER CODE BEGIN 2 */
+  memset(rx_buffer, 0, RX_BUFFER_SIZE);
+  rx_index = 0;
   HAL_GPIO_WritePin(LD2_GPIO_PORT, LD2_PIN, GPIO_PIN_RESET);
   HAL_GPIO_WritePin(LD3_GPIO_PORT, LD3_PIN, GPIO_PIN_RESET);
 
@@ -115,16 +129,16 @@ int main(void)
   while (1)
   {
 
-    tick_ms = HAL_GetTick() % 1000;
-    phase_shift_ms = (phase90_mode) ? 250 : 500;
+    tick_ms = HAL_GetTick() % blink_period_ms;
+    phase_shift_ms = (phase90_mode) ? (blink_period_ms / 4) : (blink_period_ms / 2);
 
-    if (tick_ms < 500)
+    if (tick_ms < half_period_ms)
         HAL_GPIO_WritePin(LD2_GPIO_PORT, LD2_PIN, GPIO_PIN_SET);
     else
         HAL_GPIO_WritePin(LD2_GPIO_PORT, LD2_PIN, GPIO_PIN_RESET);
 
-    uint32_t shifted = (tick_ms + phase_shift_ms) % 1000;
-    if (shifted < 500)
+    uint32_t shifted = (tick_ms + phase_shift_ms) % blink_period_ms;
+    if (shifted < half_period_ms)
         HAL_GPIO_WritePin(LD3_GPIO_PORT, LD3_PIN, GPIO_PIN_SET);
     else
         HAL_GPIO_WritePin(LD3_GPIO_PORT, LD3_PIN, GPIO_PIN_RESET);
@@ -136,6 +150,8 @@ int main(void)
         HAL_Delay(300);
     }
     last_button_state = raw;
+
+    process_uart_command();
 
     /* USER CODE END WHILE */
 
@@ -258,6 +274,83 @@ static void MX_GPIO_Init(void)
 
 /* USER CODE BEGIN 4 */
 
+/**
+  * @brief
+  */
+void process_uart_command(void)
+{
+    uint8_t byte;
+
+    if (HAL_UART_Receive(&huart3, &byte, 1, 10) == HAL_OK)
+    {
+        // Ехо-відповідь
+        HAL_UART_Transmit(&huart3, &byte, 1, 10);
+
+        if (byte == '\r' || byte == '\n')
+        {
+            if (rx_index > 0)
+            {
+                rx_buffer[rx_index] = '\0';
+                printf("\r\n");
+
+                char command[RX_BUFFER_SIZE];
+                strcpy(command, rx_buffer);
+
+                for (int i = 0; i < strlen(command); i++)
+                {
+                    command[i] = tolower(command[i]);
+                }
+
+                if (strncmp(command, "f=", 2) == 0)
+                {
+                    parse_frequency_command(command + 2);
+                }
+                else
+                {
+                    printf("ERROR: Invalid command format. Use 'F=x.x'\r\n");
+                }
+
+                rx_index = 0;
+            }
+        }
+        else if (rx_index < RX_BUFFER_SIZE - 1)
+        {
+            rx_buffer[rx_index++] = byte;
+        }
+        else
+        {
+            printf("\r\nERROR: Buffer overflow\r\n");
+            rx_index = 0;
+        }
+    }
+}
+
+/**
+  * @brief
+  */
+void parse_frequency_command(char* command)
+{
+    char *endptr;
+    float frequency = strtof(command, &endptr);
+
+    if (endptr == command)
+    {
+        printf("ERROR: Invalid number format\r\n");
+        return;
+    }
+
+    if (frequency < 1.0f || frequency > 5.0f)
+    {
+        printf("ERROR: Frequency %.1f out of range (1-5 Hz)\r\n", frequency);
+        return;
+    }
+
+    blink_period_ms = (uint32_t)(1000.0f / frequency);
+    half_period_ms = blink_period_ms / 2;
+
+    printf("OK: Frequency set to %.1f Hz (%lu ms period)\r\n", frequency, blink_period_ms);
+}
+
 /* USER CODE END 4 */
 
 /**
@@ -277,7 +370,7 @@ void Error_Handler(void)
 #ifdef USE_FULL_ASSERT
 /**
   * @brief  Reports the name of the source file and the source line number
-  * where the assert_param error has occurred.
+  *         where the assert_param error has occurred.
   * @param  file: pointer to the source file name
   * @param  line: assert_param error line source number
   * @retval None
